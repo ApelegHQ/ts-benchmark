@@ -1,0 +1,112 @@
+{
+	"name": "@apeleghq/benchmark",
+	"version": "1.0.0",
+	"description": "A statistically rigorous benchmarking library with paired t-tests, baseline correction, and confidence intervals",
+	"type": "module",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.mjs",
+	"types": "./dist/index.d.cts",
+	"exports": {
+		".": {
+			"import": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/index.mjs"
+			},
+			"require": {
+				"types": "./dist/index.d.cts",
+				"default": "./dist/index.cjs"
+			}
+		},
+		"./stats": {
+			"import": {
+				"types": "./dist/stats.d.ts",
+				"default": "./dist/stats.mjs"
+			},
+			"require": {
+				"types": "./dist/stats.d.cts",
+				"default": "./dist/stats.cjs"
+			}
+		},
+		"./reporters/advanced": {
+			"import": {
+				"types": "./dist/reporters/advanced.d.ts",
+				"default": "./dist/advanced.mjs"
+			},
+			"require": {
+				"types": "./dist/reporters/advanced.d.cts",
+				"default": "./dist/advanced.cjs"
+			}
+		},
+		"./reporters/simple": {
+			"import": {
+				"types": "./dist/reporters/simple.d.ts",
+				"default": "./dist/simple.mjs"
+			},
+			"require": {
+				"types": "./dist/reporters/simple.d.cts",
+				"default": "./dist/simple.cjs"
+			}
+		},
+		"./reporters/xunit": {
+			"import": {
+				"types": "./dist/reporters/xunit.d.ts",
+				"default": "./dist/xunit.mjs"
+			},
+			"require": {
+				"types": "./dist/reporters/reporters.d.cts",
+				"default": "./dist/xunit.cjs"
+			}
+		}
+	},
+	"devDependencies": {
+		"@eslint/eslintrc": "3.3.4",
+		"@eslint/js": "10.0.1",
+		"@types/node": "25.3.3",
+		"@typescript-eslint/eslint-plugin": "8.56.1",
+		"@typescript-eslint/parser": "8.56.1",
+		"esbuild": "0.27.3",
+		"eslint": "10.0.2",
+		"eslint-config-prettier": "10.1.8",
+		"eslint-plugin-prettier": "5.5.5",
+		"globals": "17.3.0",
+		"picocolors": "1.1.1",
+		"prettier": "3.8.1",
+		"ts-node": "10.9.2",
+		"typescript": "5.9.3"
+	},
+	"optionalDependencies": {
+		"picocolors": "^1.1.1"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/ApelegHQ/ts-benchmark.git"
+	},
+	"files": [
+		"dist/**/*"
+	],
+	"scripts": {
+		"lint": "eslint . --ext .js,.jsx,.ts,.tsx,.json",
+		"lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx,.json --fix",
+		"build": "tsc --emitDeclarationOnly --declarationMap --declaration && node --import ./loader.mjs esbuild.ts",
+		"test": "node --import ./loader.mjs --test test/index.ts",
+		"prepack": "npm run build",
+		"prepublishOnly": "npm test && npm run lint",
+		"preversion": "npm run lint",
+		"version": "npm run lint && git add -A src",
+		"postversion": "git push && git push --tags"
+	},
+	"author": "Apeleg Limited",
+	"license": "Apache-2.0 WITH LLVM-exception",
+	"keywords": [
+		"benchmark",
+		"benchmarking",
+		"performance",
+		"statistics",
+		"paired-t-test",
+		"confidence-interval",
+		"profiling",
+		"timing",
+		"measurement",
+		"statistical-analysis"
+	]
+}

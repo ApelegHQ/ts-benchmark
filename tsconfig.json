@@ -1,0 +1,26 @@
+{
+	"compilerOptions": {
+		"target": "es2018",
+		"module": "es2022",
+		"moduleResolution": "node",
+		"outDir": "dist",
+		"strict": true,
+		"strictNullChecks": true,
+		"alwaysStrict": true,
+		"noUnusedLocals": true,
+		"esModuleInterop": true,
+		"skipLibCheck": false,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"allowJs": true,
+		"checkJs": true,
+		"isolatedModules": true,
+		"lib": ["es2018", "dom"],
+		"typeRoots": ["./node_modules/@types", "./@types"]
+	},
+	"ts-node": {
+		"experimentalResolver": true
+	},
+	"include": ["src/**/*", "@types/*.d.ts"],
+	"exclude": ["node_modules"]
+}
