@@ -31,6 +31,13 @@ correction, and confidence intervals.
 - Fully JSON-serialisable output for custom reporting or CI integration.
 
 ---
+![Screenshot: Simple report](assets/simple_report.png)
+
+---
+
+![Screenshot: Advanced report](assets/advanced_report.png)
+
+---
 
 ## Installation
 
@@ -205,7 +212,6 @@ Each entry in `comparisons` includes:
 
 ## Exports
 
-```
 | Export path | Description |
 |---|---|
 | `@apeleghq/benchmark` | `runSuite` — main entry point |
@@ -213,7 +219,6 @@ Each entry in `comparisons` includes:
 | `@apeleghq/benchmark/reporters/simple` | Simple console reporter |
 | `@apeleghq/benchmark/reporters/advanced` | Advanced console reporter with full statistics |
 | `@apeleghq/benchmark/reporters/xunit` | xUnit XML reporter for CI systems |
-```
 
 ---
 

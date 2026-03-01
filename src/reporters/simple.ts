@@ -63,9 +63,18 @@ function report(suite: ISuiteReport, opts?: IReporterOptions): void {
 		opts?.output ??
 		(console.log as Exclude<IReporterOptions['output'], undefined>);
 	const W = Math.max(opts?.width ?? (out.columns || 80), 40);
-	const ln = (s = '') => {
-		out(s);
-	};
+
+	const ln = (() => {
+		const lines = [] as string[];
+		const internal = (s = '') => {
+			lines.push(s);
+		};
+		internal.flush = () => {
+			out(lines.splice(0).join('\n'));
+		};
+
+		return internal;
+	})();
 
 	/* ── Partition & sort ────────────────────────────────────────── */
 
@@ -128,6 +137,8 @@ function report(suite: ISuiteReport, opts?: IReporterOptions): void {
 	if (baseline && baseline.rawSamples.length > 0) {
 		emitBaseline(ln, baseline, unit);
 	}
+
+	ln.flush();
 }
 
 /* ================================================================== */

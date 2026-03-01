@@ -13,16 +13,16 @@
  * limitations under the License.
  */
 
-import { runSuite } from './index.js';
-import simpleReport from './reporters/simple.js';
-import advancedReport from './reporters/advanced.js';
+import { runSuite } from '../src/index.js';
+import simpleReport from '../src/reporters/simple.js';
+import advancedReport from '../src/reporters/advanced.js';
 
 type Ctx = {
 	array: unknown[];
 };
 
-const result = await runSuite<Ctx>({
-	name: 'Test suite',
+const result = await runSuite<Ctx, Ctx['array']>({
+	name: 'Array shallow copying',
 	setup() {
 		this.array = [1, 2, 3];
 	},
@@ -30,15 +30,30 @@ const result = await runSuite<Ctx>({
 		{
 			name: 'Array.from',
 			fn() {
-				Array.from(this.array);
+				return Array.from(this.array);
 			},
 		},
 		{
-			name: 'Coalesce operator',
+			name: '[].concat()',
 			fn() {
-				// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-				[...this.array];
+				return ([] as unknown[]).concat(this.array);
 			},
+		},
+		{
+			name: 'Spread operator',
+			fn() {
+				return [...this.array];
+			},
+		},
+		{
+			name: 'for-loop',
+			fn() {
+				const len = this.array.length;
+				const copy = new Array<unknown>(len);
+				for (let i = 0; i < len; i++) copy[i] = this.array[i];
+
+				return copy;
+			}
 		},
 	],
 });

@@ -37,7 +37,7 @@ function shuffled<T>(array: readonly T[]): T[] {
 
 /** Invoke an optional sync-or-async callback with a `this` context. */
 async function invoke<T extends object>(
-	fn: ((this: T) => void | Promise<void>) | undefined,
+	fn: ((this: T) => unknown | PromiseLike<unknown>) | undefined,
 	ctx: T,
 ): Promise<void> {
 	if (!fn) return;
@@ -58,9 +58,9 @@ async function invoke<T extends object>(
  * Sync functions are never unnecessarily awaited, keeping microtask
  * overhead out of the measurement loop.
  */
-async function measureTime<T extends object>(
-	fn: (this: T) => void | Promise<void>,
-	ctx: T,
+async function measureTime<TC extends object>(
+	fn: (this: TC) => unknown | PromiseLike<unknown>,
+	ctx: TC,
 	warmup: number,
 	iterations: number,
 ): Promise<number> {
@@ -70,8 +70,9 @@ async function measureTime<T extends object>(
 			r &&
 			typeof r === 'object' &&
 			typeof (r as PromiseLike<unknown>).then === 'function'
-		)
+		) {
 			await r;
+		}
 	}
 
 	const start = performance.now();
@@ -117,16 +118,16 @@ async function measureTime<T extends object>(
  * Each function gets its own context; measurements within the same trial
  * are paired for downstream statistical tests.
  */
-export class Suite<T extends object = Record<string, unknown>> {
+export class Suite<TC extends object = Record<string, unknown>, TR = unknown> {
 	private readonly _name: string;
 	private readonly _warmup: number;
 	private readonly _iterations: number;
 	private readonly _trials: number;
-	private readonly _suiteSetup?: ISuiteConfig<T>['setup'];
-	private readonly _suiteTeardown?: ISuiteConfig<T>['teardown'];
-	private readonly _fns: IBenchmarkFn<T>[] = [];
+	private readonly _suiteSetup?: ISuiteConfig<TC>['setup'];
+	private readonly _suiteTeardown?: ISuiteConfig<TC>['teardown'];
+	private readonly _fns: IBenchmarkFn<TC, TR>[] = [];
 
-	constructor(options: ISuiteConfig<T>) {
+	constructor(options: ISuiteConfig<TC>) {
 		this._name = options.name;
 		this._warmup = options.warmupIterations ?? 10;
 		this._iterations = options.iterationsPerTrial ?? 1000;
@@ -136,7 +137,7 @@ export class Suite<T extends object = Record<string, unknown>> {
 	}
 
 	/** Register a benchmark function.  Returns `this` for chaining. */
-	add(fn: IBenchmarkFn<T>): this {
+	add(fn: IBenchmarkFn<TC, TR>): this {
 		if (this._fns.some((f) => f.name === fn.name)) {
 			throw new Error(`Duplicate benchmark name: "${fn.name}"`);
 		}
@@ -156,7 +157,7 @@ export class Suite<T extends object = Record<string, unknown>> {
 		// overhead of the measurement loop (call dispatch, thenable check,
 		// loop counter).  It participates in shuffling like every other
 		// function so it experiences the same ordering / cache conditions.
-		const nullFn: IBenchmarkFn<T> = {
+		const nullFn: IBenchmarkFn<TC> = {
 			name: NULL_FUNCTION_NAME,
 			fn() {},
 		};
@@ -172,7 +173,7 @@ export class Suite<T extends object = Record<string, unknown>> {
 			const measurements: Record<string, ITrialMeasurement> = {};
 
 			for (const bench of order) {
-				const ctx = {} as T;
+				const ctx = {} as TC;
 
 				await invoke(this._suiteSetup, ctx);
 				await invoke(bench.setup, ctx);
@@ -219,11 +220,11 @@ export class Suite<T extends object = Record<string, unknown>> {
  * One-shot functional API — builds a {@link Suite}, adds every function,
  * and runs immediately.
  */
-export async function runSuite<T extends object = Record<string, unknown>>(
-	config: ISuiteConfig<T> & { functions: IBenchmarkFn<T>[] },
+export async function runSuite<TC extends object = Record<string, unknown>, TR = unknown>(
+	config: ISuiteConfig<TC> & { functions: IBenchmarkFn<TC, TR>[] },
 ): Promise<ISuiteReport> {
 	const { functions, ...suiteConfig } = config;
-	const suite = new Suite<T>(suiteConfig);
+	const suite = new Suite<TC, TR>(suiteConfig);
 	for (const fn of functions) suite.add(fn);
 	return suite.run();
 }

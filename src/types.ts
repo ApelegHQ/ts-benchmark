@@ -16,7 +16,7 @@
 /**
  * A callback that receives benchmark context via `this`.
  */
-export type ContextFn<T extends object> = (this: T) => void | Promise<void>;
+export type ContextFn<TC extends object, TR = unknown> = (this: TC) => TR | PromiseLike<TR>;
 
 /**
  * Reserved name for the automatically-injected no-op baseline function.
@@ -28,21 +28,21 @@ export const NULL_FUNCTION_NAME = '@@null';
 /**
  * A single benchmark function to be measured within a suite.
  */
-export interface IBenchmarkFn<T extends object = Record<string, unknown>> {
+export interface IBenchmarkFn<TC extends object = Record<string, unknown>, TR = unknown> {
 	/** Display name for this benchmark. Must be unique within its suite. */
 	name: string;
 	/** The function to benchmark. Receives shared context via `this`. */
-	fn: ContextFn<T>;
+	fn: ContextFn<TC, TR>;
 	/** Runs before warmup + measurement each trial (after suite setup). */
-	setup?: ContextFn<T>;
+	setup?: ContextFn<TC, void>;
 	/** Runs after measurement each trial (before suite teardown). */
-	teardown?: ContextFn<T>;
+	teardown?: ContextFn<TC, void>;
 }
 
 /**
  * Configuration for a benchmark suite.
  */
-export interface ISuiteConfig<T extends object = Record<string, unknown>> {
+export interface ISuiteConfig<TC extends object = Record<string, unknown>> {
 	/** Display name for the suite. */
 	name: string;
 	/** Warmup iterations before each measurement (default: 10). */
@@ -55,12 +55,12 @@ export interface ISuiteConfig<T extends object = Record<string, unknown>> {
 	 * Suite-level setup — runs once per function per trial to populate a
 	 * fresh context object before the function-level setup.
 	 */
-	setup?: ContextFn<T>;
+	setup?: ContextFn<TC, void>;
 	/**
 	 * Suite-level teardown — runs once per function per trial after the
 	 * function-level teardown.
 	 */
-	teardown?: ContextFn<T>;
+	teardown?: ContextFn<TC, void>;
 }
 
 // ── Raw trial data ──────────────────────────────────────────────────────
