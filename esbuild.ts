@@ -23,6 +23,7 @@ const buildOptionsBase: esbuild.BuildOptions = {
 	entryPoints: [
 		'./src/index.ts',
 		'./src/stats.ts',
+		'./src/types.ts',
 		'./src/reporters/advanced.ts',
 		'./src/reporters/simple.ts',
 		'./src/reporters/xunit.ts',

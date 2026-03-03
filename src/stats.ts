@@ -105,65 +105,24 @@ export function tDistPValue(t: number, df: number): number {
 }
 
 /**
- * Approximate two-tailed critical value $t_{\alpha/2}$ for $\alpha = 0.05$.
- *
- * Uses a lookup table with linear interpolation; for $\nu > 1000$ returns
- * the standard-normal value 1.96.
+ * Inverse of Student's t CDF (quantile function).
+ * Uses a simple bisection for the 0.975 quantile (two-tailed α=0.05).
  */
-export function tCritical005TwoTailed(df: number): number {
-	const table: [number, number][] = [
-		[1, 12.706],
-		[2, 4.303],
-		[3, 3.182],
-		[4, 2.776],
-		[5, 2.571],
-		[6, 2.447],
-		[7, 2.365],
-		[8, 2.306],
-		[9, 2.262],
-		[10, 2.228],
-		[11, 2.201],
-		[12, 2.179],
-		[13, 2.16],
-		[14, 2.145],
-		[15, 2.131],
-		[16, 2.12],
-		[17, 2.11],
-		[18, 2.101],
-		[19, 2.093],
-		[20, 2.086],
-		[25, 2.06],
-		[30, 2.042],
-		[35, 2.03],
-		[40, 2.021],
-		[45, 2.014],
-		[50, 2.009],
-		[60, 2.0],
-		[80, 1.99],
-		[100, 1.984],
-		[120, 1.98],
-		[200, 1.972],
-		[500, 1.965],
-		[1000, 1.962],
-	];
-
-	if (df <= 0) return NaN;
-	if (df >= 1000) return 1.96;
-
-	// Find bracketing entries and interpolate
-	let lo = table[0];
-	let hi = table[table.length - 1];
-	for (let i = 0; i < table.length - 1; i++) {
-		if (table[i][0] <= df && table[i + 1][0] >= df) {
-			lo = table[i];
-			hi = table[i + 1];
-			break;
+export function tQuantile975(df: number): number {
+	// Bisect to find t such that P(T ≤ t) = 0.975
+	let lo = 0;
+	let hi = 20;
+	for (let i = 0; i < 100; i++) {
+		const mid = (lo + hi) / 2;
+		// P(|T| > mid) = beta regularised value
+		const pTwoTail = tDistPValue(mid, df);
+		if (pTwoTail < 0.05) {
+			hi = mid;
+		} else {
+			lo = mid;
 		}
 	}
-
-	if (lo[0] === hi[0]) return lo[1];
-	const ratio = (df - lo[0]) / (hi[0] - lo[0]);
-	return lo[1] + ratio * (hi[1] - lo[1]);
+	return (lo + hi) / 2;
 }
 
 // ── Internal helpers ────────────────────────────────────────────────────
@@ -193,7 +152,11 @@ function lnGamma(z: number): number {
  * Regularised incomplete beta function $I_x(a, b)$ via Lentz's
  * continued-fraction method.
  */
-function regularisedIncompleteBeta(x: number, a: number, b: number): number {
+export function regularisedIncompleteBeta(
+	x: number,
+	a: number,
+	b: number,
+): number {
 	if (x <= 0) return 0;
 	if (x >= 1) return 1;
 

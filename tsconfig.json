@@ -15,7 +15,7 @@
 		"allowJs": true,
 		"checkJs": true,
 		"isolatedModules": true,
-		"lib": ["es2018", "dom"],
+		"lib": ["es2022", "dom"],
 		"typeRoots": ["./node_modules/@types", "./@types"]
 	},
 	"ts-node": {

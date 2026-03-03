@@ -13,20 +13,21 @@
  * limitations under the License.
  */
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import {
+	max,
 	mean,
 	median,
-	variance,
-	stdDev,
-	sem,
-	percentile,
 	min,
-	max,
-	trimmedMean,
+	percentile,
+	regularisedIncompleteBeta,
+	sem,
+	stdDev,
 	tDistPValue,
-	tCritical005TwoTailed,
+	tQuantile975,
+	trimmedMean,
+	variance,
 } from '../src/stats.js';
 
 function assertApprox(
@@ -276,33 +277,61 @@ describe('tDistPValue', () => {
 	});
 });
 
-describe('tCritical005TwoTailed', () => {
-	it('matches exact table entries', () => {
-		assert.equal(tCritical005TwoTailed(1), 12.706);
-		assert.equal(tCritical005TwoTailed(10), 2.228);
-		assert.equal(tCritical005TwoTailed(20), 2.086);
+describe('tQuantile975', () => {
+	it('matches expected values', () => {
+		const cdf1df = (x: number) => Math.atan(x) / Math.PI + 1 / 2;
+		const cdf10df = (x: number) =>
+			(x *
+				((8 * x ** 8) / 625 +
+					(72 * x ** 6) / 125 +
+					(252 * x ** 4) / 25 +
+					84 * x ** 2 +
+					315)) /
+				(256 *
+					Math.sqrt(10) *
+					(-(x ** 2) / 10 - 1) ** 4 *
+					Math.sqrt(x ** 2 / 10 + 1)) +
+			1 / 2;
+
+		const cdfDf = (df: number, x: number) => {
+			if (x <= 0) {
+				return (
+					regularisedIncompleteBeta(
+						df / (x ** 2 + df),
+						df / 2,
+						1 / 2,
+					) / 2
+				);
+			} else {
+				return (
+					(regularisedIncompleteBeta(
+						x ** 2 / (x ** 2 + df),
+						1 / 2,
+						df / 2,
+					) +
+						1) /
+					2
+				);
+			}
+		};
+
+		assertApprox(cdf1df(tQuantile975(1)), 0.975);
+		assertApprox(cdf10df(tQuantile975(10)), 0.975);
+		assertApprox(cdfDf(20, tQuantile975(20)), 0.975);
+		assertApprox(cdfDf(100, tQuantile975(100)), 0.975);
+		assertApprox(cdfDf(5000, tQuantile975(5000)), 0.975);
 	});
 
-	it('returns 1.96 for large df', () => {
-		assert.equal(tCritical005TwoTailed(5000), 1.96);
-	});
-
-	it('interpolates linearly between table entries', () => {
-		// df = 22 sits between 20 (2.086) and 25 (2.060)
-		const expected = 2.086 + (2 / 5) * (2.06 - 2.086);
-		assertApprox(tCritical005TwoTailed(22), expected);
-	});
-
-	it('tCritical005TwoTailed uses standard normal for large df', () => {
-		const tc = tCritical005TwoTailed(1_000_001);
+	it('uses standard normal for large df', () => {
+		const tc = tQuantile975(1_000_001);
 		// standard-normal z_{0.975} ≈ 1.959963984540054
-		assertApprox(tc, 1.96, 1e-2);
+		assertApprox(tc, 1.95996, 1e-5);
 	});
 
-	it('tCritical005TwoTailed monotonic and reasonable for small df', () => {
-		const t1 = tCritical005TwoTailed(1);
-		const t5 = tCritical005TwoTailed(5);
-		const t30 = tCritical005TwoTailed(30);
+	it('is monotonic and reasonable for small df', () => {
+		const t1 = tQuantile975(1);
+		const t5 = tQuantile975(5);
+		const t30 = tQuantile975(30);
 		// critical value should decrease as df increases
 		assert.ok(t1 > t5 && t5 > t30);
 		// check approximate known values

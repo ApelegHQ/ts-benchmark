@@ -48,7 +48,7 @@ function computeFunctionStats(
 	const n = samples.length;
 	const sd = stats.stdDev(samples);
 	const se = stats.sem(samples);
-	const tCrit = stats.tCritical005TwoTailed(Math.max(n - 1, 1));
+	const tCrit = stats.tQuantile975(Math.max(n - 1, 1));
 
 	return {
 		name,
@@ -97,7 +97,7 @@ function computePairedComparison(
 
 	const tStat = seD > 0 ? meanD / seD : 0;
 	const pValue = seD > 0 ? stats.tDistPValue(tStat, df) : 1;
-	const tCrit = stats.tCritical005TwoTailed(df);
+	const tCrit = stats.tQuantile975(df);
 
 	const meanBadj = stats.mean(adjB);
 

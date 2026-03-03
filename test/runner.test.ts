@@ -13,10 +13,24 @@
  * limitations under the License.
  */
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { Suite, runSuite } from '../src/runner.js';
+import { describe, it, type TestContext } from 'node:test';
+import { runSuite, Suite } from '../src/runner.js';
 import { NULL_FUNCTION_NAME } from '../src/types.js';
+
+const setupRandomnessMocks = (t: TestContext) => {
+	t.mock.method(
+		crypto,
+		'getRandomValues',
+		(b: ArrayBufferView<ArrayBufferLike>) => {
+			const u8 = new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
+			for (let i = 0; i < u8.byteLength; i++) {
+				u8[i] = 0;
+			}
+		},
+	);
+	t.mock.method(Math, 'random', () => 0);
+};
 
 describe('Suite', () => {
 	// ── add() ─────────────────────────────────────────────────────────
@@ -47,7 +61,7 @@ describe('Suite', () => {
 		it('returns a correctly shaped report', async (t) => {
 			let time = 0;
 			t.mock.method(performance, 'now', () => time);
-			t.mock.method(Math, 'random', () => 0.99999); // identity shuffle
+			setupRandomnessMocks(t);
 
 			const report = await new Suite({
 				name: 'shape',
@@ -78,7 +92,7 @@ describe('Suite', () => {
 		it('measures deterministic timings with a mocked clock', async (t) => {
 			let time = 0;
 			t.mock.method(performance, 'now', () => time);
-			t.mock.method(Math, 'random', () => 0.99999);
+			setupRandomnessMocks(t);
 
 			const report = await new Suite({
 				name: 'timings',
@@ -117,7 +131,7 @@ describe('Suite', () => {
 		it('warmup iterations are excluded from the measurement', async (t) => {
 			let time = 0;
 			t.mock.method(performance, 'now', () => time);
-			t.mock.method(Math, 'random', () => 0.99999);
+			setupRandomnessMocks(t);
 
 			const report = await new Suite({
 				name: 'warmup',
@@ -143,7 +157,7 @@ describe('Suite', () => {
 		it('every trial contains every function', async (t) => {
 			let time = 0;
 			t.mock.method(performance, 'now', () => time);
-			t.mock.method(Math, 'random', () => 0.99999);
+			setupRandomnessMocks(t);
 
 			const report = await new Suite({
 				name: 'pairs',
@@ -176,7 +190,7 @@ describe('Suite', () => {
 		it('records execution order per trial', async (t) => {
 			let time = 0;
 			t.mock.method(performance, 'now', () => time);
-			t.mock.method(Math, 'random', () => 0.99999); // identity shuffle
+			setupRandomnessMocks(t);
 
 			const report = await new Suite({
 				name: 'order',
@@ -211,7 +225,7 @@ describe('Suite', () => {
 		it('calls setup → fn → teardown in the right order', async (t) => {
 			const time = 0;
 			t.mock.method(performance, 'now', () => time);
-			t.mock.method(Math, 'random', () => 0.99999);
+			setupRandomnessMocks(t);
 
 			const log: string[] = [];
 
@@ -227,6 +241,9 @@ describe('Suite', () => {
 				teardown() {
 					log.push('suite-teardown');
 				},
+				validate() {
+					log.push('suite-validate');
+				},
 			})
 				.add({
 					name: 'fn',
@@ -240,6 +257,9 @@ describe('Suite', () => {
 					teardown() {
 						log.push('fn-teardown');
 					},
+					validate() {
+						log.push('fn-validate');
+					},
 				})
 				.run();
 
@@ -247,6 +267,8 @@ describe('Suite', () => {
 			assert.deepEqual(log, [
 				'suite-setup',
 				'suite-teardown', // @@null
+				'suite-validate',
+				'fn-validate',
 				'suite-setup',
 				'fn-setup',
 				'fn-run',
@@ -258,7 +280,7 @@ describe('Suite', () => {
 		it('creates a fresh context per function × trial', async (t) => {
 			const time = 0;
 			t.mock.method(performance, 'now', () => time);
-			t.mock.method(Math, 'random', () => 0.99999);
+			setupRandomnessMocks(t);
 
 			const seen: object[] = [];
 
@@ -283,7 +305,7 @@ describe('Suite', () => {
 		it('context set in suite setup is visible to fn setup', async (t) => {
 			const time = 0;
 			t.mock.method(performance, 'now', () => time);
-			t.mock.method(Math, 'random', () => 0.99999);
+			setupRandomnessMocks(t);
 
 			await new Suite<{ seed: number }>({
 				name: 'ctx-flow',
@@ -312,7 +334,7 @@ describe('Suite', () => {
 		it('handles async benchmark functions', async (t) => {
 			let time = 0;
 			t.mock.method(performance, 'now', () => time);
-			t.mock.method(Math, 'random', () => 0.99999);
+			setupRandomnessMocks(t);
 
 			const report = await new Suite({
 				name: 'async-fn',
@@ -336,7 +358,7 @@ describe('Suite', () => {
 		it('handles async setup and teardown', async (t) => {
 			const time = 0;
 			t.mock.method(performance, 'now', () => time);
-			t.mock.method(Math, 'random', () => 0.99999);
+			setupRandomnessMocks(t);
 
 			let tornDown = false;
 
@@ -370,7 +392,7 @@ describe('Suite', () => {
 		it('divides total time by iterations for per-iteration average', async (t) => {
 			let time = 0;
 			t.mock.method(performance, 'now', () => time);
-			t.mock.method(Math, 'random', () => 0.99999);
+			setupRandomnessMocks(t);
 
 			const report = await new Suite({
 				name: 'avg',
@@ -400,7 +422,7 @@ describe('runSuite', () => {
 	it('is equivalent to building a Suite manually', async (t) => {
 		let time = 0;
 		t.mock.method(performance, 'now', () => time);
-		t.mock.method(Math, 'random', () => 0.99999);
+		setupRandomnessMocks(t);
 
 		const report = await runSuite({
 			name: 'convenience',

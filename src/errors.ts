@@ -13,30 +13,27 @@
  * limitations under the License.
  */
 
-// Runner
-export { runSuite, Suite } from './runner.js';
+export class BenchmarkError extends Error {}
 
-// Report generation (useful for re-processing serialised trial data)
-export { generateReport } from './report.js';
+export class BenchmarkAbortedError extends BenchmarkError {}
 
-// Stats utilities (for custom consumer-side analysis)
-export * as stats from './stats.js';
+export class BenchmarkDuplicateNameError extends BenchmarkError {}
 
-// Error types
-export * from './errors.js';
+export class BenchmarkEmptyError extends BenchmarkError {}
 
-// Types
-export { NULL_FUNCTION_NAME } from './types.js';
-export type {
-	ContextFn,
-	IBenchmarkFn,
-	IFunctionStatistics,
-	IPairedComparison,
-	IRunProgress,
-	ISuiteConfig,
-	ISuiteReport,
-	ITrialMeasurement,
-	ITrialResult,
-} from './types.js';
+export class BenchmarkRunnerError extends BenchmarkError {
+	benchName: string;
+	trial: number;
 
-export * from './reporters/index.js';
+	constructor(
+		message: string,
+		cause: unknown,
+		benchName: string,
+		trial: number,
+	) {
+		super(message, { cause: cause });
+
+		this.benchName = benchName;
+		this.trial = trial;
+	}
+}

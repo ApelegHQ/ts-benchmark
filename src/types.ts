@@ -27,7 +27,13 @@ export type ContextFn<
  * Its measurement captures pure loop + call overhead, which is subtracted
  * from every other function on a per-trial basis.
  */
-export const NULL_FUNCTION_NAME = '@@null';
+export const NULL_FUNCTION_NAME = '@@null' as const;
+
+export interface IRunProgress {
+	trial: number;
+	totalTrials: number;
+	currentFunction: string;
+}
 
 /**
  * A single benchmark function to be measured within a suite.

@@ -1,6 +1,6 @@
 {
 	"name": "@apeleghq/benchmark",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"description": "A statistically rigorous benchmarking library with paired t-tests, baseline correction, and confidence intervals",
 	"type": "module",
 	"main": "./dist/index.cjs",
@@ -25,6 +25,16 @@
 			"require": {
 				"types": "./dist/stats.d.cts",
 				"default": "./dist/stats.cjs"
+			}
+		},
+		"./types": {
+			"import": {
+				"types": "./dist/types.d.ts",
+				"default": "./dist/types.mjs"
+			},
+			"require": {
+				"types": "./dist/types.d.cts",
+				"default": "./dist/types.cjs"
 			}
 		},
 		"./reporters/advanced": {

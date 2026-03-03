@@ -13,6 +13,12 @@
  * limitations under the License.
  */
 
+import {
+	BenchmarkAbortedError,
+	BenchmarkDuplicateNameError,
+	BenchmarkEmptyError,
+	BenchmarkRunnerError,
+} from './errors.js';
 import { generateReport } from './report.js';
 import type {
 	IBenchmarkFn,
@@ -21,19 +27,10 @@ import type {
 	ITrialMeasurement,
 	ITrialResult,
 } from './types.js';
-import { NULL_FUNCTION_NAME } from './types.js';
+import { IRunProgress, NULL_FUNCTION_NAME } from './types.js';
+import { shuffled } from './utils.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────────
-
-/** Fisher-Yates shuffle (returns a new array). */
-function shuffled<T>(array: readonly T[]): T[] {
-	const out = [...array];
-	for (let i = out.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[out[i], out[j]] = [out[j], out[i]];
-	}
-	return out;
-}
 
 /** Invoke an optional sync-or-async callback with a `this` context. */
 async function invoke<TC extends object, TA extends unknown[] = never[]>(
@@ -86,7 +83,9 @@ async function measureTime<TC extends object>(
 		)
 			await r;
 	}
-	return performance.now() - start;
+	const end = performance.now();
+
+	return end - start;
 }
 
 // ── Suite ───────────────────────────────────────────────────────────────
@@ -142,19 +141,27 @@ export class Suite<TC extends object = Record<string, unknown>, TR = unknown> {
 	/** Register a benchmark function.  Returns `this` for chaining. */
 	add(fn: IBenchmarkFn<TC, TR>): this {
 		if (this._fns.some((f) => f.name === fn.name)) {
-			throw new Error(`Duplicate benchmark name: "${fn.name}"`);
+			throw new BenchmarkDuplicateNameError(
+				`Duplicate benchmark name: "${fn.name}"`,
+			);
 		}
 		this._fns.push(fn);
 		return this;
 	}
 
 	/** Execute all trials and return a {@link ISuiteReport}. */
-	async run(): Promise<ISuiteReport> {
+	async run(opts?: {
+		eventTarget?: EventTarget;
+		signal?: AbortSignal;
+	}): Promise<ISuiteReport> {
 		if (this._fns.length === 0) {
-			throw new Error(
+			throw new BenchmarkEmptyError(
 				'Suite has no benchmark functions — call .add() before .run()',
 			);
 		}
+
+		const eventTarget = opts?.eventTarget;
+		const signal = opts?.signal;
 
 		// Inject the null baseline — an empty function that captures the
 		// overhead of the measurement loop (call dispatch, thenable check,
@@ -176,44 +183,70 @@ export class Suite<TC extends object = Record<string, unknown>, TR = unknown> {
 			const measurements: Record<string, ITrialMeasurement> = {};
 
 			for (const bench of order) {
-				if (
-					bench.name !== NULL_FUNCTION_NAME &&
-					(this._suiteValidate || bench.setup)
-				) {
-					const validateCtx = {} as TC;
-					await invoke(
-						this._suiteValidate,
-						validateCtx,
-						bench.fn as IBenchmarkFn<TC, TR>['fn'],
+				try {
+					if (signal?.aborted) {
+						throw new BenchmarkAbortedError('Aborted');
+					}
+					if (eventTarget) {
+						eventTarget.dispatchEvent(
+							new CustomEvent<IRunProgress>('progress', {
+								detail: {
+									trial: t + 1,
+									totalTrials: this._trials,
+									currentFunction: bench.name,
+								},
+							}),
+						);
+						// Allow event to propagate
+						await new Promise((resolve) => setTimeout(resolve, 0));
+					}
+
+					if (
+						bench.name !== NULL_FUNCTION_NAME &&
+						(this._suiteValidate || bench.setup)
+					) {
+						const validateCtx = {} as TC;
+						await invoke(
+							this._suiteValidate,
+							validateCtx,
+							bench.fn as IBenchmarkFn<TC, TR>['fn'],
+						);
+						await invoke(
+							bench.validate,
+							validateCtx,
+							bench.fn as IBenchmarkFn<TC, TR>['fn'],
+						);
+					}
+
+					const ctx = {} as TC;
+					await invoke(this._suiteSetup, ctx);
+					await invoke(bench.setup, ctx);
+
+					const totalMs = await measureTime(
+						bench.fn,
+						ctx,
+						this._warmup,
+						this._iterations,
 					);
-					await invoke(
-						bench.validate,
-						validateCtx,
-						bench.fn as IBenchmarkFn<TC, TR>['fn'],
+
+					await invoke(bench.teardown, ctx);
+					await invoke(this._suiteTeardown, ctx);
+
+					executionOrder.push(bench.name);
+					measurements[bench.name] = {
+						name: bench.name,
+						totalMs,
+						iterations: this._iterations,
+						perIterationMs: totalMs / this._iterations,
+					};
+				} catch (e) {
+					throw new BenchmarkRunnerError(
+						`Error in ${bench.name}`,
+						e,
+						bench.name,
+						t,
 					);
 				}
-
-				const ctx = {} as TC;
-				await invoke(this._suiteSetup, ctx);
-				await invoke(bench.setup, ctx);
-
-				const totalMs = await measureTime(
-					bench.fn,
-					ctx,
-					this._warmup,
-					this._iterations,
-				);
-
-				await invoke(bench.teardown, ctx);
-				await invoke(this._suiteTeardown, ctx);
-
-				executionOrder.push(bench.name);
-				measurements[bench.name] = {
-					name: bench.name,
-					totalMs,
-					iterations: this._iterations,
-					perIterationMs: totalMs / this._iterations,
-				};
 			}
 
 			trials.push({ trialIndex: t, executionOrder, measurements });
@@ -243,10 +276,14 @@ export async function runSuite<
 	TC extends object = Record<string, unknown>,
 	TR = unknown,
 >(
-	config: ISuiteConfig<TC, TR> & { functions: IBenchmarkFn<TC, TR>[] },
+	config: ISuiteConfig<TC, TR> & {
+		functions: IBenchmarkFn<TC, TR>[];
+		eventTarget?: EventTarget;
+		signal?: AbortSignal;
+	},
 ): Promise<ISuiteReport> {
-	const { functions, ...suiteConfig } = config;
+	const { functions, eventTarget, signal, ...suiteConfig } = config;
 	const suite = new Suite<TC, TR>(suiteConfig);
 	for (const fn of functions) suite.add(fn);
-	return suite.run();
+	return suite.run({ eventTarget, signal });
 }
