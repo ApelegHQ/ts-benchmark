@@ -14,12 +14,23 @@
  */
 
 import pc from 'picocolors';
-import { mean, stdDev } from '../stats.js';
 import type {
 	IFunctionStatistics,
 	IPairedComparison,
 	ISuiteReport,
 } from '../types.js';
+
+function getRatio(
+	fastest: IFunctionStatistics,
+	a: IFunctionStatistics,
+	b: IFunctionStatistics,
+) {
+	if (!(fastest.mean > 0)) {
+		return a.rawMean / b.rawMean;
+	}
+
+	return a.mean / b.mean;
+}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  Constants
@@ -63,27 +74,27 @@ function lpad(s: string, w: number): string {
 function ft(ms: number): string {
 	const a = Math.abs(ms);
 	const sign = ms < 0 ? '−' : '';
-	if (a === 0) return '0.00 ns';
+	if (a === 0) return '0.000 ns';
 	if (a < 0.000_000_000_001) return `${sign}${(a * 1e15).toFixed(3)} as`;
 	if (a < 0.000_000_001) return `${sign}${(a * 1e12).toFixed(3)} fs`;
 	if (a < 0.000_001) return `${sign}${(a * 1e9).toFixed(3)} ps`;
-	if (a < 0.001) return `${sign}${(a * 1e6).toFixed(2)} ns`;
-	if (a < 1) return `${sign}${(a * 1e3).toFixed(2)} µs`;
+	if (a < 0.001) return `${sign}${(a * 1e6).toFixed(3)} ns`;
+	if (a < 1) return `${sign}${(a * 1e3).toFixed(3)} µs`;
 	if (a < 1000) return `${sign}${a.toFixed(3)} ms`;
 	return `${sign}${(a / 1000).toFixed(3)} s`;
 }
 
 /** Format throughput as operations per second with SI suffix. */
 function fops(ms: number): string {
-	if (ms <= 0) return '∞ op/s';
+	if (ms <= 0) return '∞';
 	const ops = 1000 / ms;
-	if (ops >= 1e18) return `${(ops / 1e18).toFixed(2)}E op/s`;
-	if (ops >= 1e15) return `${(ops / 1e15).toFixed(2)}P op/s`;
-	if (ops >= 1e12) return `${(ops / 1e12).toFixed(2)}T op/s`;
-	if (ops >= 1e9) return `${(ops / 1e9).toFixed(2)}G op/s`;
-	if (ops >= 1e6) return `${(ops / 1e6).toFixed(2)}M op/s`;
-	if (ops >= 1e3) return `${(ops / 1e3).toFixed(2)}K op/s`;
-	return `${ops.toFixed(2)} op/s`;
+	if (ops >= 1e18) return `${(ops / 1e18).toFixed(2)}E`;
+	if (ops >= 1e15) return `${(ops / 1e15).toFixed(2)}P`;
+	if (ops >= 1e12) return `${(ops / 1e12).toFixed(2)}T`;
+	if (ops >= 1e9) return `${(ops / 1e9).toFixed(2)}G`;
+	if (ops >= 1e6) return `${(ops / 1e6).toFixed(2)}M`;
+	if (ops >= 1e3) return `${(ops / 1e3).toFixed(2)}k`;
+	return `${ops.toFixed(2)}`;
 }
 
 /** Locale-formatted integer / number. */
@@ -290,6 +301,24 @@ function renderHeader(suite: Readonly<ISuiteReport>): string[] {
 	L.push('  ' + bar('┃') + ' '.repeat(inner) + bar('┃'));
 	L.push('  ' + bar('┗' + '━'.repeat(inner) + '┛'));
 
+	if (
+		suite.functions.some(
+			(fn) => fn.name !== suite.baselineName && !(fn.mean > 0),
+		)
+	) {
+		L.push('');
+		L.push(
+			'    ' +
+				pc.yellow('⚠') +
+				'  ' +
+				pc.yellow(
+					`Raw ratios shown — some baseline-adjusted values are at or below the noise floor,`,
+				),
+		);
+		L.push('       ' + pc.yellow('making adjusted ratios unreliable.'));
+		L.push('');
+	}
+
 	return L;
 }
 
@@ -328,12 +357,12 @@ function renderWinner(
 				pc.dim(`(${fpv(topComp.pValue)})`),
 		);
 	} else {
-		const ratio2 = second.mean / fastest.mean;
+		const ratio2 = getRatio(fastest, second, fastest);
 		const parts = [pc.dim(`${fmul(ratio2)} faster than ${second.name}`)];
 		if (fns.length > 2) {
 			parts.push(
 				pc.dim(
-					`${fmul(slowest.mean / fastest.mean)} vs ${slowest.name}`,
+					`${fmul(getRatio(fastest, slowest, fastest))} vs ${slowest.name}`,
 				),
 			);
 		}
@@ -389,11 +418,11 @@ function renderLeaderboard(
 			),
 	);
 
-	const maxOps = fastest.mean > 0 ? 1 / fastest.mean : 0;
+	const maxOps = fastest.mean > 0 ? 1 / fastest.mean : 1 / fastest.rawMean;
 
 	for (let i = 0; i < fns.length; i++) {
 		const f = fns[i];
-		const ops = f.mean > 0 ? 1 / f.mean : 0;
+		const ops = fastest.mean > 0 ? 1 / f.mean : 1 / f.rawMean;
 		const ratio = maxOps > 0 ? ops / maxOps : 0;
 
 		const medal = i < 3 ? MEDALS[i] : pc.dim(`#${i + 1}`);
@@ -413,11 +442,9 @@ function renderLeaderboard(
 		let rel: string;
 		if (i === 0) {
 			rel = pc.green(' fastest');
-		} else if (fastest.mean > 0) {
-			const timesSlower = f.mean / fastest.mean;
-			rel = pc.dim(` ${fmul(timesSlower)} slower`);
 		} else {
-			rel = '';
+			const timesSlower = getRatio(fastest, f, fastest);
+			rel = pc.dim(` ${fmul(timesSlower)} slower`);
 		}
 
 		L.push(
@@ -576,7 +603,9 @@ function renderComparisons(
 
 		const aFaster = fA.mean <= fB.mean;
 		const fasterName = aFaster ? c.a : c.b;
-		const ratio = aFaster ? fB.mean / fA.mean : fA.mean / fB.mean;
+		const ratio = aFaster
+			? getRatio(fns[0], fB, fA)
+			: getRatio(fns[0], fA, fB);
 
 		L.push('');
 		L.push('    ' + pc.bold(c.a) + pc.dim(' vs ') + pc.bold(c.b));
@@ -689,7 +718,7 @@ function renderMatrix(
 			}
 
 			// ratio > 1 ⇒ row is faster
-			const ratio = colF.mean / rowF.mean;
+			const ratio = getRatio(fns[0], colF, rowF);
 
 			const comp = comps.find(
 				(cc) =>
@@ -726,8 +755,8 @@ function renderBaseline(
 
 	const L: string[] = [];
 
-	const baseLineMean = mean(baseline.rawSamples);
-	const baselineStdDev = stdDev(baseline.rawSamples);
+	const baseLineMean = baseline.rawMean;
+	const baselineStdDev = baseline.rawStdDev;
 
 	L.push(secLine('Measurement Overhead'));
 	L.push('');
@@ -744,33 +773,31 @@ function renderBaseline(
 		'    ' + pc.dim('All reported times have this overhead subtracted.'),
 	);
 
-	if (fastest.mean > 0) {
-		const ratio = baseLineMean / fastest.mean;
-		if (ratio > 0.1) {
-			L.push('');
-			L.push(
-				'    ' +
-					pc.yellow('⚠') +
-					'  ' +
-					pc.yellow(
-						`Overhead is ${(ratio * 100).toFixed(1)}% of the fastest function.`,
-					),
-			);
-			L.push(
-				'    ' +
-					pc.dim(
-						'   Consider increasing work per iteration for more accurate results.',
-					),
-			);
-		} else {
-			L.push(
-				'    ' +
-					pc.dim(
-						`Overhead is ${(ratio * 100).toFixed(2)}% of the fastest — `,
-					) +
-					pc.green('negligible'),
-			);
-		}
+	const ratio = baseLineMean / fastest.rawMean;
+	if (ratio > 0.1) {
+		L.push('');
+		L.push(
+			'    ' +
+				pc.yellow('⚠') +
+				'  ' +
+				pc.yellow(
+					`Overhead is ${(ratio * 100).toFixed(1)}% of the fastest function.`,
+				),
+		);
+		L.push(
+			'    ' +
+				pc.dim(
+					'   Consider increasing work per iteration for more accurate results.',
+				),
+		);
+	} else {
+		L.push(
+			'    ' +
+				pc.dim(
+					`Overhead is ${(ratio * 100).toFixed(2)}% of the fastest — `,
+				) +
+				pc.green('negligible'),
+		);
 	}
 
 	return L;

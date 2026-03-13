@@ -186,6 +186,12 @@ export interface IFunctionStatistics {
 	 */
 	samples: number[];
 
+	/** Arithmetic mean of raw per-iteration times (ms). */
+	rawMean: number;
+	/** Median of raw per-iteration times (ms). */
+	rawMedian: number;
+	/** Raw sample standard deviation (Bessel-corrected) (ms). */
+	rawStdDev: number;
 	/**
 	 * Raw (uncorrected) per-iteration times, one per trial (ms).
 	 * Provided so consumers can inspect or apply their own correction.

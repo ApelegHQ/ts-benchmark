@@ -29,7 +29,6 @@
  */
 
 import pc from 'picocolors';
-import { mean } from '../stats.js';
 import type {
 	IFunctionStatistics,
 	IPairedComparison,
@@ -305,8 +304,7 @@ function emitBaseline(
 	baseline: Readonly<IFunctionStatistics>,
 	unit: Readonly<Unit>,
 ): void {
-	const raw = baseline.rawSamples;
-	const avg = mean(raw);
+	const avg = baseline.rawMean;
 
 	ln(
 		`  ${pc.dim(

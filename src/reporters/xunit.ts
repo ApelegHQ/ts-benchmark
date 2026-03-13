@@ -149,6 +149,9 @@ function buildFnCase(
 		safeXml`        <property name="vendor:benchmark.wallClock_ms" value="${wallClockMs}" />`,
 		// ── Per-trial data (JSON arrays — enables downstream re-analysis)
 		safeXml`        <property name="vendor:benchmark.samples" value="${JSON.stringify(f.samples)}" />`,
+		safeXml`        <property name="vendor:benchmark.rawMean_ms" value="${f.rawMean}" />`,
+		safeXml`        <property name="vendor:benchmark.rawMedian_ms" value="${f.rawMedian}" />`,
+		safeXml`        <property name="vendor:benchmark.rawStdDev_ms" value="${f.rawStdDev}" />`,
 		safeXml`        <property name="vendor:benchmark.rawSamples" value="${JSON.stringify(f.rawSamples)}" />`,
 		safeXml`      </properties>`,
 		safeXml`      <system-out>${fnSummaryText(f)}</system-out>`,

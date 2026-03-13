@@ -65,6 +65,9 @@ function computeFunctionStats(
 		p95: stats.percentile(samples, 95),
 		marginOfError95: tCrit * se,
 		samples,
+		rawMean: stats.mean(rawSamples),
+		rawMedian: stats.median(rawSamples),
+		rawStdDev: stats.stdDev(rawSamples),
 		rawSamples,
 	};
 }
